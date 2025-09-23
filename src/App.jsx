@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./App.css"; // Import CSS
+import "./App.css";
 
 function App() {
   const [files, setFiles] = useState([]);
@@ -8,82 +8,209 @@ function App() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [activeCard, setActiveCard] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const API_BASE = "http://localhost:5000/api";
 
-  const handleFilesChange = (e) => setFiles(e.target.files);
-  const handleFileChange = (e) => setFile(e.target.files[0]);
+  const handleFilesChange = (e) => setFiles(e.target.files || []);
+  const handleFileChange = (e) => setFile((e.target.files || [])[0] || null);
 
-  const downloadFile = (response, filename) => {
-    const blob = new Blob([response.data]);
+  function getFilenameFromHeaders(headers, fallback) {
+    const cd = headers?.["content-disposition"] || headers?.get?.("content-disposition");
+    if (!cd) return fallback;
+    const match = /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i.exec(cd);
+    if (match) {
+      return decodeURIComponent(match[1] || match[2]).replace(/[/\\?%*:|"<>]/g, "_");
+    }
+    return fallback;
+  }
+
+  async function handleBlobOrJsonError(resp) {
+    // resp may be axios response or fetch response-like
+    const ct = resp.headers?.["content-type"] || resp.headers?.get?.("content-type") || "";
+    if (ct.startsWith("application/json")) {
+      // If axios with responseType 'blob', data is a Blob
+      let text;
+      if (resp.data && typeof resp.data.text === "function") {
+        text = await resp.data.text();
+      } else if (typeof resp.data === "string") {
+        text = resp.data;
+      }
+      try {
+        const json = text ? JSON.parse(text) : {};
+        const msg = json.details || json.error || "Unknown server error";
+        throw new Error(msg);
+      } catch {
+        throw new Error("Server returned an error (invalid JSON).");
+      }
+    } else {
+      // Not JSON—try to read text (may still be an error page)
+      if (resp.data && typeof resp.data.text === "function") {
+        const text = await resp.data.text().catch(() => "");
+        if (text) throw new Error(text.slice(0, 500));
+      }
+      throw new Error(`Server error (status ${resp.status})`);
+    }
+  }
+
+  function downloadBlob(blob, filename) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
     a.remove();
-  };
+    window.URL.revokeObjectURL(url);
+  }
 
-  // API functions
+  // ---------- API calls (each with robust error handling) ----------
+
   const mergePdfs = async () => {
-    const formData = new FormData();
-    for (let f of files) formData.append("files", f);
+    if (!files || files.length < 2) {
+      alert("Select at least 2 PDFs.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      for (const f of files) formData.append("files", f);
 
-    const res = await axios.post(`${API_BASE}/merge`, formData, {
-      responseType: "blob",
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    downloadFile(res, "merged.zip");
+      const res = await axios.post(`${API_BASE}/merge`, formData, {
+        responseType: "blob",
+        headers: { "Accept": "*/*" },
+        validateStatus: () => true,
+      });
+
+      if (res.status >= 400) {
+        await handleBlobOrJsonError(res);
+      }
+
+      const filename = getFilenameFromHeaders(
+        res.headers,
+        "merged.zip" // expecting zip if backend zips outputs; adjust if different
+      );
+      downloadBlob(res.data, filename);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Merge failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const splitPdf = async () => {
-    if (parseInt(from) > parseInt(to)) {
-      alert(`Invalid page range`);
+    if (!file) {
+      alert("Select a PDF.");
       return;
     }
+    const f = parseInt(from, 10);
+    const t = parseInt(to, 10);
+    if (!f || !t || f < 1 || t < 1 || f > t) {
+      alert("Invalid page range.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const formData = new FormData();
-    formData.append("file", file);
+      const res = await axios.post(`${API_BASE}/split?from=${f}&to=${t}`, formData, {
+        responseType: "blob",
+        headers: { "Accept": "*/*" },
+        validateStatus: () => true,
+      });
 
-    const res = await axios.post(
-      `${API_BASE}/split?from=${from}&to=${to}`,
-      formData,
-      { responseType: "blob" }
-    );
-    downloadFile(res, `split-${from}-${to}.zip`);
+      if (res.status >= 400) {
+        await handleBlobOrJsonError(res);
+      }
+
+      const filename = getFilenameFromHeaders(res.headers, `split-${f}-${t}.zip`);
+      downloadBlob(res.data, filename);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Split failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const pdfToTxt = async () => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await axios.post(`${API_BASE}/pdf-to-txt`, formData, {
-      responseType: "blob",
-    });
-    downloadFile(res, "output.zip");
+    if (!file) {
+      alert("Select a PDF.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post(`${API_BASE}/pdf-to-txt`, formData, {
+        responseType: "blob",
+        headers: { "Accept": "*/*" },
+        validateStatus: () => true,
+      });
+
+      if (res.status >= 400) {
+        await handleBlobOrJsonError(res);
+      }
+
+      const filename = getFilenameFromHeaders(res.headers, "output.zip");
+      downloadBlob(res.data, filename);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "TXT conversion failed");
+    } finally {
+      setBusy(false);
+    }
   };
+
+  
 
   const pdfToDocx = async () => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await axios.post(`${API_BASE}/pdf-to-docx`, formData, {
-      responseType: "blob",
-    });
-    downloadFile(res, "output.docx");
+    if (!file) {
+      alert("Select a PDF.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post(`${API_BASE}/pdf-to-docx`, formData, {
+        responseType: "blob",
+        headers: { "Accept": "*/*" },
+        validateStatus: () => true,
+      });
+
+      if (res.status >= 400) {
+        await handleBlobOrJsonError(res);
+      }
+
+      // Prefer server-provided filename; fallback to original base + .docx
+      const fallback =
+        (file.name || "document.pdf").replace(/\.pdf$/i, "") + ".docx";
+      const filename = getFilenameFromHeaders(res.headers, fallback);
+
+      downloadBlob(res.data, filename);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "DOCX conversion failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Handle browser back button
+  // Handle browser back button for the card UI
   useEffect(() => {
-    if (activeCard) {
-      window.history.pushState({ activeCard }, "");
-    }
+    if (activeCard) window.history.pushState({ activeCard }, "");
     const handlePopState = () => setActiveCard(null);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [activeCard]);
 
-  // Card component
   const Card = ({ title, description, onClick }) => (
-    <div className="card" onClick={onClick}>
+    <div className={`card ${busy ? "disabled" : ""}`} onClick={busy ? undefined : onClick}>
       <h3>{title}</h3>
       <p>{description}</p>
     </div>
@@ -93,7 +220,6 @@ function App() {
     <div className="app">
       <h1>📂 PDF Tools</h1>
 
-      {/* Show 4 cards if no card is active */}
       {!activeCard && (
         <div className="card-grid">
           <Card
@@ -119,21 +245,15 @@ function App() {
         </div>
       )}
 
-      {/* Opened card details */}
       {activeCard === "merge" && (
         <section className="tool-section">
           <h3>Merge PDFs</h3>
-          <input
-            type="file"
-            multiple
-            accept="application/pdf"
-            onChange={handleFilesChange}
-          />
+          <input type="file" multiple accept="application/pdf" onChange={handleFilesChange} />
           <div className="btn-group">
-            <button className="primary-btn" onClick={mergePdfs}>
-              Merge
+            <button className="primary-btn" onClick={mergePdfs} disabled={busy}>
+              {busy ? "Merging…" : "Merge"}
             </button>
-            <button className="secondary-btn" onClick={() => setActiveCard(null)}>
+            <button className="secondary-btn" onClick={() => setActiveCard(null)} disabled={busy}>
               ⬅ Back
             </button>
           </div>
@@ -157,10 +277,10 @@ function App() {
             onChange={(e) => setTo(e.target.value)}
           />
           <div className="btn-group">
-            <button className="primary-btn" onClick={splitPdf}>
-              Split
+            <button className="primary-btn" onClick={splitPdf} disabled={busy}>
+              {busy ? "Splitting…" : "Split"}
             </button>
-            <button className="secondary-btn" onClick={() => setActiveCard(null)}>
+            <button className="secondary-btn" onClick={() => setActiveCard(null)} disabled={busy}>
               ⬅ Back
             </button>
           </div>
@@ -172,10 +292,10 @@ function App() {
           <h3>PDF ➝ TXT</h3>
           <input type="file" accept="application/pdf" onChange={handleFileChange} />
           <div className="btn-group">
-            <button className="primary-btn" onClick={pdfToTxt}>
-              Convert
+            <button className="primary-btn" onClick={pdfToTxt} disabled={busy}>
+              {busy ? "Converting…" : "Convert"}
             </button>
-            <button className="secondary-btn" onClick={() => setActiveCard(null)}>
+            <button className="secondary-btn" onClick={() => setActiveCard(null)} disabled={busy}>
               ⬅ Back
             </button>
           </div>
@@ -187,10 +307,10 @@ function App() {
           <h3>PDF ➝ DOCX</h3>
           <input type="file" accept="application/pdf" onChange={handleFileChange} />
           <div className="btn-group">
-            <button className="primary-btn" onClick={pdfToDocx}>
-              Convert
+            <button className="primary-btn" onClick={pdfToDocx} disabled={busy}>
+              {busy ? "Converting…" : "Convert"}
             </button>
-            <button className="secondary-btn" onClick={() => setActiveCard(null)}>
+            <button className="secondary-btn" onClick={() => setActiveCard(null)} disabled={busy}>
               ⬅ Back
             </button>
           </div>
