@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "vite"
   },
   "dependencies": {
     "react": "^19.1.1",
