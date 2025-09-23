@@ -23,45 +23,50 @@ function App() {
     a.remove();
   };
 
-  // Merge PDFs
-  const mergePdfs = async () => {
-    const formData = new FormData();
-    for (let f of files) formData.append("files", f);
-    const res = await axios.post(`${API_BASE}/merge`, formData, {
-      responseType: "blob",
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    downloadFile(res, "merged.pdf");
-  };
+ // Merge PDFs
+const mergePdfs = async () => {
+  const formData = new FormData();
+  for (let f of files) formData.append("files", f);
 
-  // Split PDF
-  const splitPdf = async () => {
-    if (parseInt(from) > parseInt(to)) {
-  alert(`Invalid page range:`);
-  return;
-}
+  const res = await axios.post(`${API_BASE}/merge`, formData, {
+    responseType: "blob",
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await axios.post(
-      `${API_BASE}/split?from=${from}&to=${to}`,
-      formData,
-      { responseType: "blob" }
-    );
-    
-    downloadFile(res, `split-${from}-${to}.pdf`);
-  };
+  // ✅ correct extension
+  downloadFile(res, "merged.zip");
+};
+
+// Split PDF
+const splitPdf = async () => {
+  if (parseInt(from) > parseInt(to)) {
+    alert(`Invalid page range`);
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await axios.post(
+    `${API_BASE}/split?from=${from}&to=${to}`,
+    formData,
+    { responseType: "blob" }
+  );
+
+  // Now download as ZIP (backend sends zip, not raw PDF)
+  downloadFile(res, `split-${from}-${to}.zip`);
+};
+
 
   // PDF to TXT
-  const pdfToTxt = async () => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await axios.post(`${API_BASE}/pdf-to-txt`, formData, {
-      responseType: "blob",
-    });
-    downloadFile(res, "output.txt");
-  };
-
+const pdfToTxt = async () => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await axios.post(`${API_BASE}/pdf-to-txt`, formData, {
+    responseType: "blob",
+  });
+  downloadFile(res, "output.zip");
+};
   // PDF to DOCX
   const pdfToDocx = async () => {
     const formData = new FormData();
@@ -71,6 +76,15 @@ function App() {
     });
     downloadFile(res, "output.docx");
   };
+
+//   const pdfToDocx = async () => {
+//   const formData = new FormData();
+//   formData.append("file", file);
+//   const res = await axios.post(`${API_BASE}/pdf-to-docx`, formData, {
+//     responseType: "blob",
+//   });
+//   downloadFile(res, "output.zip");
+// };
 
   return (
     <div style={{ padding: "20px" }}>
