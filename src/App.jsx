@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
+import { FaCodeMerge } from "react-icons/fa6";
+import { LuSplit } from "react-icons/lu";
+import { TbTexture } from "react-icons/tb";
+import { BsFiletypeDocx } from "react-icons/bs";
+import { RiCharacterRecognitionLine } from "react-icons/ri";
 
 function App() {
   const [files, setFiles] = useState([]);
@@ -11,7 +16,8 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [imgFiles, setImgFiles] = useState([]);
 
-  const API_BASE = "http://localhost:5000/api";
+  const API_BASE = import.meta.env.VITE_API_BASE;
+  console.log("API Base:", API_BASE);
 
   const handleFilesChange = (e) => setFiles(e.target.files || []);
   const handleFileChange = (e) => setFile((e.target.files || [])[0] || null);
@@ -241,13 +247,15 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [activeCard]);
 
-  const Card = ({ title, description, onClick }) => (
+  const Card = ({ title, description, onClick, Icon  }) => (
     <div
       className={`card ${busy ? "disabled" : ""}`}
       onClick={busy ? undefined : onClick}
     >
+      {Icon ? <span className="icon"><Icon /></span> : null}
       <h3>{title}</h3>
       <p>{description}</p>
+      
     </div>
   );
 
@@ -258,26 +266,31 @@ function App() {
       {!activeCard && (
         <div className="card-grid">
           <Card
+            Icon={FaCodeMerge}
             title="Merge PDFs"
             description="Combine multiple PDFs into one"
             onClick={() => setActiveCard("merge")}
           />
           <Card
+            Icon={LuSplit}
             title="Split PDF"
             description="Extract specific pages"
             onClick={() => setActiveCard("split")}
           />
           <Card
+          Icon={TbTexture}
             title="PDF ➝ TXT"
             description="Convert PDF to text file"
             onClick={() => setActiveCard("txt")}
           />
           <Card
+           Icon={BsFiletypeDocx}
             title="PDF ➝ DOCX"
             description="Convert PDF to Word document"
             onClick={() => setActiveCard("docx")}
           />
           <Card
+            Icon={RiCharacterRecognitionLine}
             title="Image ➝ Text (OCR)"
             description="Extract text from images"
             onClick={() => setActiveCard("ocr")}

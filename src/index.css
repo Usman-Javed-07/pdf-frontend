@@ -59,19 +59,27 @@ h1 {
 .card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 25px;
+  gap: 10px;
   margin: 40px auto;
-  max-width: 800px;
+  max-width: 820px;
+}
+@media screen and (max-width: 768px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+    padding: 0 10px;
+  }
+  
 }
 
 .card {
   background-color: #ffffff;
-  border-radius: 12px;
+  border-radius: 5px;
   padding: 30px 20px;
   text-align: center;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid red;
 }
 
 .card:hover {
@@ -145,4 +153,9 @@ button {
 
 .secondary-btn:hover {
   background: #cfcfcf;
+}
+
+.icon{
+  color: red;
+  font-size: 2.5rem;
 }
