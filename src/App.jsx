@@ -32,13 +32,11 @@ function App() {
   }
 
   async function handleBlobOrJsonError(resp) {
-    // resp may be axios response or fetch response-like
     const ct =
       resp.headers?.["content-type"] ||
       resp.headers?.get?.("content-type") ||
       "";
     if (ct.startsWith("application/json")) {
-      // If axios with responseType 'blob', data is a Blob
       let text;
       if (resp.data && typeof resp.data.text === "function") {
         text = await resp.data.text();
@@ -53,7 +51,6 @@ function App() {
         throw new Error("Server returned an error (invalid JSON).");
       }
     } else {
-      // Not JSON—try to read text (may still be an error page)
       if (resp.data && typeof resp.data.text === "function") {
         const text = await resp.data.text().catch(() => "");
         if (text) throw new Error(text.slice(0, 500));
@@ -72,8 +69,6 @@ function App() {
     a.remove();
     window.URL.revokeObjectURL(url);
   }
-
-  // ---------- API calls (each with robust error handling) ----------
 
   const mergePdfs = async () => {
     if (!files || files.length < 2) {
@@ -95,10 +90,7 @@ function App() {
         await handleBlobOrJsonError(res);
       }
 
-      const filename = getFilenameFromHeaders(
-        res.headers,
-        "merged.zip" // expecting zip if backend zips outputs; adjust if different
-      );
+      const filename = getFilenameFromHeaders(res.headers, "merged.zip");
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
@@ -200,8 +192,6 @@ function App() {
       if (res.status >= 400) {
         await handleBlobOrJsonError(res);
       }
-
-      // Prefer server-provided filename; fallback to original base + .docx
       const fallback =
         (file.name || "document.pdf").replace(/\.pdf$/i, "") + ".docx";
       const filename = getFilenameFromHeaders(res.headers, fallback);
@@ -223,7 +213,6 @@ function App() {
     setBusy(true);
     try {
       const formData = new FormData();
-      // backend route accepts both "file" and "files"; we’ll use "files"
       for (const f of imgFiles) formData.append("files", f);
 
       const res = await axios.post(`${API_BASE}/ocr`, formData, {
@@ -245,8 +234,6 @@ function App() {
       setBusy(false);
     }
   };
-
-  // Handle browser back button for the card UI
   useEffect(() => {
     if (activeCard) window.history.pushState({ activeCard }, "");
     const handlePopState = () => setActiveCard(null);
@@ -403,24 +390,32 @@ function App() {
         </section>
       )}
       {activeCard === "ocr" && (
-  <section className="tool-section">
-    <h3>Image ➝ Text (OCR)</h3>
-    <input
-      type="file"
-      accept="image/*"
-      multiple
-      onChange={handleImgFilesChange}
-    />
-    <div className="btn-group">
-      <button className="primary-btn" onClick={imageToText} disabled={busy}>
-        {busy ? "Reading…" : "Convert"}
-      </button>
-      <button className="secondary-btn" onClick={() => setActiveCard(null)} disabled={busy}>
-        ⬅ Back
-      </button>
-    </div>
-  </section>
-)}
+        <section className="tool-section">
+          <h3>Image ➝ Text (OCR)</h3>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImgFilesChange}
+          />
+          <div className="btn-group">
+            <button
+              className="primary-btn"
+              onClick={imageToText}
+              disabled={busy}
+            >
+              {busy ? "Reading…" : "Convert"}
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => setActiveCard(null)}
+              disabled={busy}
+            >
+              ⬅ Back
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
