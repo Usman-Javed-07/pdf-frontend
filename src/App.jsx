@@ -6,6 +6,7 @@ import { LuSplit } from "react-icons/lu";
 import { TbTexture } from "react-icons/tb";
 import { BsFiletypeDocx } from "react-icons/bs";
 import { RiCharacterRecognitionLine } from "react-icons/ri";
+import { toast } from "react-toastify";
 
 function App() {
   const [files, setFiles] = useState([]);
@@ -78,7 +79,7 @@ function App() {
 
   const mergePdfs = async () => {
     if (!files || files.length < 2) {
-      alert("Select at least 2 PDFs.");
+      toast.warn("Select at least 2 PDFs.");
       return;
     }
     setBusy(true);
@@ -100,7 +101,7 @@ function App() {
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Merge failed");
+      toast.error(err.message || "Merge failed");
     } finally {
       setBusy(false);
     }
@@ -108,13 +109,13 @@ function App() {
 
   const splitPdf = async () => {
     if (!file) {
-      alert("Select a PDF.");
+      toast.warn("Select a PDF.");
       return;
     }
     const f = parseInt(from, 10);
     const t = parseInt(to, 10);
     if (!f || !t || f < 1 || t < 1 || f > t) {
-      alert("Invalid page range.");
+      toast.error("Invalid page range.");
       return;
     }
     setBusy(true);
@@ -143,7 +144,7 @@ function App() {
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
-      alert(err.message || "Split failed");
+      toast.error(err.message || "Split failed");
     } finally {
       setBusy(false);
     }
@@ -151,7 +152,7 @@ function App() {
 
   const pdfToTxt = async () => {
     if (!file) {
-      alert("Select a PDF.");
+      toast.warn("Select a PDF.");
       return;
     }
     setBusy(true);
@@ -173,7 +174,7 @@ function App() {
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
-      alert(err.message || "TXT conversion failed");
+      toast.error(err.message || "TXT conversion failed");
     } finally {
       setBusy(false);
     }
@@ -181,7 +182,7 @@ function App() {
 
   const pdfToDocx = async () => {
     if (!file) {
-      alert("Select a PDF.");
+      toast.warn("Select a PDF.");
       return;
     }
     setBusy(true);
@@ -205,7 +206,7 @@ function App() {
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
-      alert(err.message || "DOCX conversion failed");
+      toast.error(err.message || "DOCX conversion failed");
     } finally {
       setBusy(false);
     }
@@ -213,7 +214,7 @@ function App() {
 
   const imageToText = async () => {
     if (!imgFiles || imgFiles.length < 1) {
-      alert("Select at least 1 image.");
+      toast.warn("Select at least 1 image.");
       return;
     }
     setBusy(true);
@@ -235,7 +236,7 @@ function App() {
       downloadBlob(res.data, filename);
     } catch (err) {
       console.error(err);
-      alert(err.message || "OCR failed");
+      toast.error(err.message || "OCR failed");
     } finally {
       setBusy(false);
     }
@@ -247,15 +248,18 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [activeCard]);
 
-  const Card = ({ title, description, onClick, Icon  }) => (
+  const Card = ({ title, description, onClick, Icon }) => (
     <div
       className={`card ${busy ? "disabled" : ""}`}
       onClick={busy ? undefined : onClick}
     >
-      {Icon ? <span className="icon"><Icon /></span> : null}
+      {Icon ? (
+        <span className="icon">
+          <Icon />
+        </span>
+      ) : null}
       <h3>{title}</h3>
       <p>{description}</p>
-      
     </div>
   );
 
@@ -278,13 +282,13 @@ function App() {
             onClick={() => setActiveCard("split")}
           />
           <Card
-          Icon={TbTexture}
+            Icon={TbTexture}
             title="PDF ➝ TXT"
             description="Convert PDF to text file"
             onClick={() => setActiveCard("txt")}
           />
           <Card
-           Icon={BsFiletypeDocx}
+            Icon={BsFiletypeDocx}
             title="PDF ➝ DOCX"
             description="Convert PDF to Word document"
             onClick={() => setActiveCard("docx")}
